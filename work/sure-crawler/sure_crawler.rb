@@ -9,14 +9,35 @@ headers = {
 }
 
 base_domain = "https://www.surecritic.com"
+robots_url = "#{base_domain}/robots.txt"
+sitemap_url = nil
 
+def get_sitemap(robots_url, headers)
+  puts "1: Fetching robots.txt from #{robots_url}"
+  begin
+    robots_content = URI.open(robots_url, headers).read
+    if match = robots_content.match(/^Sitemap:\s*(.+)$/i)
+      sitemap_url = match[1].strip
+      puts "\tFound sitemap URL: #{sitemap_url}"
+    end
+  rescue => e
+    puts "\tError: #{e.message}"
+  else
+    if sitemap_url
+      puts "Sitemap Located!"
+    else
+      puts "No Sitemap located on the robots.txt page :("
+    end
+  end
+  return sitemap_url
+end
 # I should automate the look up and download of the sitemap
 # so that way this program doesnt require a manual download
 # of the file to run, and so it can run smaller subsequent
 # scans after the first major one.
 # 
 # Define a variable for the sitmap URL
-sitemap_url = "https://www.surecritic.com/sitemaps/sitemap.xml.gz"
+
 sitemap_filename = "sitemap.xml"
 puts "Downloading sitemap..."
 begin
