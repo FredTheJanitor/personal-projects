@@ -1,14 +1,16 @@
 require "open-uri"
 require "zlib"
+require "date"
 
 headers = {
-  "User-Agent" => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-  "Referer" => "https://www.google.com/search?q=surecritic",
+  "User-Agent" => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
   "Accept" => "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-  "Accept-Language" => "en-US,en;q=0.9"
+  "Accept-Language" => "en-US,en;q=0.9",
+  "Referer" => "https://www.surecritic.com/",
+  "Connection" => "keep-alive"
 }
-
-base_domain = "https://www.surecritic.com"
+site_name = "surecritic"
+base_domain = "https://www.#{site_name}.com"
 robots_url = "#{base_domain}/robots.txt"
 sitemap_url = nil
 
@@ -31,24 +33,54 @@ def get_sitemap(robots_url, headers)
   end
   return sitemap_url
 end
-# I should automate the look up and download of the sitemap
-# so that way this program doesnt require a manual download
-# of the file to run, and so it can run smaller subsequent
-# scans after the first major one.
-# 
-# Define a variable for the sitmap URL
 
-sitemap_filename = "sitemap.xml"
-puts "Downloading sitemap..."
-begin
-  URI.open(sitemap_url, headers) do |compressed_file|
-    gz = Zlib::GzipReader.new(compressed_file)
-    File.open(sitemap_filename, "w") { |f| f.write(gz.read) }
-    gz.close
+
+def download_file(sitemap_url, headers)
+  if sitemap_url
+    puts "2: Downloading Sitemap..."
+
+    File.open("sitemap.xml.gz", "wb") do |file|
+      file.write(URI.open(sitemap_url, headers).read)
+    end
+
+    puts "\tDownload complete! Saved as 'sitemap.xml.gz"
   end
-  puts "\tSuccessfully downloaded and decompressed to #{sitemap_filename}"
-  rescue => e
-    puts "\tError: #{e.message}"
 end
-# Navigate to the sitemap with the url
+
+def unzip_the_file
+  puts "3: Unzipping the sitemap..."
+  Zlib::GzipReader.open("sitemap.xml.gz") do |gz|
+    sitemap_xml = gz.read
+    puts "\tSuccess! Here is a sneak peek of the data:"
+    puts "------------------------------------------"
+    puts sitemap_xml[0..100] 
+    puts "------------------------------------------"
+    return sitemap_xml
+  end
+end
+
+def scan_all_shops(sitemap_string)
+  pattern = /<loc>(https:\/\/www\.surecritic\.com\/reviews\/[^<]+)<\/loc>.*?<lastmod>(\d{4}-\d{2}-\d{2})/m
+  all_shops = sitemap_string.scan(pattern)
+  puts "--- Analysis Complete ---"
+  puts "Total links found: #{all_shops.length}"
+  return all_shops
+end
+
+def filter_recent_shops(shop_list)
+  cutoff_date = Date.today - 21
+  puts "Filtering for shops updated after: #{cutoff_date}"
+  active_surecritic = shop_list.select do |url, date_str|
+    Date.parse(date_str) >= cutoff_date
+  end
+  puts "Filtered down to #{active_surecritic.length} Active SureCritic Shops"
+  return active_surecritic
+end
+
+# sitemap_url = get_sitemap(robots_url, headers)
+# download_file(sitemap_url, headers)
+sitemap_string = unzip_the_file
+all_entries = scan_all_shops(sitemap_string)
+recent_surecritic_reviews = filter_recent_shops(all_entries)
+
 
